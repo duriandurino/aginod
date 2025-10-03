@@ -42,9 +42,16 @@ export default function Dashboard() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
+    if (user && !loading && profile) {
+      // Wait for both user AND profile to be loaded
+      console.log('User and profile loaded, fetching pins...');
+      
       // Auto-complete pins first, then fetch
       autoCompleteReliefPins().then(() => {
+        fetchPins();
+      }).catch((error) => {
+        console.error('Error in auto-complete:', error);
+        // Still fetch pins even if auto-complete fails
         fetchPins();
       });
 
@@ -63,7 +70,7 @@ export default function Dashboard() {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, loading, profile]);
 
   useEffect(() => {
     if (statusFilter === 'all') {
@@ -78,6 +85,12 @@ export default function Dashboard() {
 
   const fetchPins = async () => {
     try {
+      if (!user) {
+        console.log('No user, skipping fetch');
+        setLoadingPins(false);
+        return;
+      }
+
       // Fetch all pins including completed ones for filtering
       let query = supabase
         .from('relief_pins')
@@ -85,19 +98,28 @@ export default function Dashboard() {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (!isAdmin && user) {
+      // Check if user is admin (based on profile role)
+      const userIsAdmin = profile?.role === 'admin';
+
+      if (!userIsAdmin) {
         // Public users see approved pins and their own pins (all statuses)
         query = query.or(`status.eq.approved,user_id.eq.${user.id}`);
       }
-      // Admins see all pins
+      // Admins see all active pins
 
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error('Query error:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} pins (isAdmin: ${userIsAdmin})`);
       setPins(data || []);
     } catch (error: any) {
       console.error('Error fetching pins:', error);
       toast.error('Failed to load relief pins');
+      setPins([]); // Set empty array on error to prevent infinite loading
     } finally {
       setLoadingPins(false);
     }
