@@ -78,9 +78,23 @@ export default function Dashboard() {
 
   const fetchPins = async () => {
     try {
-      // Use the new utility function to get active pins
-      const data = await getActiveReliefPins(user?.id, isAdmin);
-      setPins(data);
+      // Fetch all pins including completed ones for filtering
+      let query = supabase
+        .from('relief_pins')
+        .select('*, user_profile:user_profiles(*)')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (!isAdmin && user) {
+        // Public users see approved pins and their own pins (all statuses)
+        query = query.or(`status.eq.approved,user_id.eq.${user.id}`);
+      }
+      // Admins see all pins
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      setPins(data || []);
     } catch (error: any) {
       console.error('Error fetching pins:', error);
       toast.error('Failed to load relief pins');

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Check, X, Trash2, UserCheck, UserX, Shield, Eye, Clock, Archive } from 'lucide-react';
+import { ArrowLeft, Check, X, Trash2, UserCheck, UserX, Shield, Eye, Clock, Archive, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -89,7 +89,7 @@ export default function AdminPanel() {
         supabase
           .from('relief_pins')
           .select('*, user_profile:user_profiles(*)')
-          .eq('is_active', true)
+          // Don't filter by is_active - show all pins including hidden ones in the list
           .order('created_at', { ascending: false }),
         supabase
           .from('user_profiles')
@@ -136,11 +136,28 @@ export default function AdminPanel() {
 
       if (error) throw error;
 
-      toast.success('Pin hidden successfully');
+      toast.success('Pin hidden from map successfully');
       fetchData();
     } catch (error: any) {
       console.error('Error hiding pin:', error);
       toast.error('Failed to hide pin');
+    }
+  };
+
+  const handlePinUnhide = async (pinId: string) => {
+    try {
+      const { error } = await supabase
+        .from('relief_pins')
+        .update({ is_active: true })
+        .eq('id', pinId);
+
+      if (error) throw error;
+
+      toast.success('Pin restored to map successfully');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error unhiding pin:', error);
+      toast.error('Failed to unhide pin');
     }
   };
 
@@ -310,8 +327,15 @@ export default function AdminPanel() {
                         </TableRow>
                       ) : (
                         pins.map((pin) => (
-                          <TableRow key={pin.id}>
-                            <TableCell className="font-medium">{pin.location_name}</TableCell>
+                          <TableRow key={pin.id} className={!pin.is_active ? 'opacity-50 bg-gray-50' : ''}>
+                            <TableCell className="font-medium">
+                              {pin.location_name}
+                              {!pin.is_active && (
+                                <Badge variant="outline" className="ml-2 text-xs bg-orange-50 text-orange-700 border-orange-300">
+                                  Hidden
+                                </Badge>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <Badge variant="outline">{pin.relief_type}</Badge>
                             </TableCell>
@@ -379,15 +403,27 @@ export default function AdminPanel() {
                                     <Clock className="w-4 h-4" />
                                   </Button>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-orange-600 hover:text-orange-700"
-                                  onClick={() => setActionDialog({ open: true, id: pin.id, type: 'pin', action: 'hide' })}
-                                  title="Hide pin"
-                                >
-                                  <Archive className="w-4 h-4" />
-                                </Button>
+                                {pin.is_active ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-orange-600 hover:text-orange-700"
+                                    onClick={() => setActionDialog({ open: true, id: pin.id, type: 'pin', action: 'hide' })}
+                                    title="Hide from map (pin stays in list)"
+                                  >
+                                    <Archive className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-green-600 hover:text-green-700"
+                                    onClick={() => handlePinUnhide(pin.id)}
+                                    title="Show on map again"
+                                  >
+                                    <ArchiveRestore className="w-4 h-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="ghost"
