@@ -104,29 +104,98 @@ export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600p
               click: () => onPinClick?.(pin),
             }}
           >
-            <Popup>
-              <div className="min-w-[200px]">
-                <h3 className="font-bold text-lg mb-2">{pin.location_name}</h3>
-                <div className="space-y-1 text-sm">
-                  <p><strong>Type:</strong> {pin.relief_type}</p>
-                  <p><strong>Status:</strong> <span className={`
-                    ${pin.status === 'approved' ? 'text-green-600' : ''}
-                    ${pin.status === 'pending' ? 'text-yellow-600' : ''}
-                    ${pin.status === 'rejected' ? 'text-red-600' : ''}
-                    font-semibold capitalize
-                  `}>{pin.status}</span></p>
-                  <p className="text-gray-600">{pin.description}</p>
-                  {pin.photo_url && (
+            <Popup maxWidth={320} className="custom-popup">
+              <div className="min-w-[280px] max-w-[320px]">
+                {/* Header with location and relief type */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-gray-900 leading-tight">{pin.location_name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-2xl">
+                        {pin.relief_type === 'food' ? '🍚' :
+                         pin.relief_type === 'medical' ? '⚕️' :
+                         pin.relief_type === 'shelter' ? '🏠' :
+                         pin.relief_type === 'water' ? '💧' :
+                         pin.relief_type === 'clothing' ? '👕' : '📦'}
+                      </span>
+                      <span className="text-sm font-medium text-gray-700 capitalize">
+                        {pin.relief_type} Relief
+                      </span>
+                    </div>
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    pin.status === 'approved' ? 'bg-green-100 text-green-800' :
+                    pin.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    pin.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {pin.status}
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="mb-3">
+                  <p className="text-sm text-gray-700 leading-relaxed">{pin.description}</p>
+                </div>
+
+                {/* Photo */}
+                {pin.photo_url && (
+                  <div className="mb-3">
                     <img
                       src={pin.photo_url}
-                      alt="Relief proof"
-                      className="w-full h-32 object-cover rounded mt-2"
+                      alt="Relief distribution photo"
+                      className="w-full h-40 object-cover rounded-lg shadow-sm border border-gray-200"
                     />
+                  </div>
+                )}
+
+                {/* Date and time information */}
+                <div className="space-y-2 text-xs text-gray-500 border-t border-gray-100 pt-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Posted:</span>
+                    <span>{format(new Date(pin.created_at), 'MMM d, yyyy • h:mm a')}</span>
+                  </div>
+                  
+                  {/* Show datetime info if available */}
+                  {pin.start_datetime && (
+                    <div className="flex justify-between">
+                      <span className="font-medium">Starts:</span>
+                      <span>{format(new Date(pin.start_datetime), 'MMM d, yyyy • h:mm a')}</span>
+                    </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">
-                    {format(new Date(pin.created_at), 'PPp')}
-                  </p>
+                  
+                  {pin.end_datetime && (
+                    <div className="flex justify-between">
+                      <span className="font-medium">Ends:</span>
+                      <span className={new Date(pin.end_datetime) < new Date() ? 'text-red-600 font-medium' : ''}>
+                        {format(new Date(pin.end_datetime), 'MMM d, yyyy • h:mm a')}
+                        {new Date(pin.end_datetime) < new Date() && ' (Expired)'}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
+                {/* User info */}
+                {pin.user_profile && (
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                    {pin.user_profile.avatar_url ? (
+                      <img
+                        src={pin.user_profile.avatar_url}
+                        alt="User avatar"
+                        className="w-6 h-6 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-gray-600">
+                          {pin.user_profile.full_name?.[0] || pin.user_profile.email?.[0] || '?'}
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-xs text-gray-600">
+                      by {pin.user_profile.full_name || pin.user_profile.email}
+                    </span>
+                  </div>
+                )}
               </div>
             </Popup>
           </Marker>
