@@ -24,6 +24,33 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
+// Helper functions to convert UTC to Philippines time (UTC+8) for display only
+const formatPhilippinesDateOnly = (dateString: string) => {
+  const date = new Date(dateString);
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  };
+  return date.toLocaleString('en-US', options);
+};
+
+const formatPhilippinesDateTimeFull = (dateString: string) => {
+  const date = new Date(dateString);
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  };
+  return date.toLocaleString('en-US', options);
+};
+
 export default function AdminPanel() {
   const { user, profile, loading, isAdmin } = useAuth();
   const router = useRouter();
@@ -307,7 +334,7 @@ export default function AdminPanel() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-sm text-gray-600">
-                              {format(new Date(pin.created_at), 'MMM d, yyyy')}
+                              {formatPhilippinesDateOnly(pin.created_at)}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
@@ -431,7 +458,7 @@ export default function AdminPanel() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm text-gray-600">
-                            {format(new Date(usr.created_at), 'MMM d, yyyy')}
+                            {formatPhilippinesDateOnly(usr.created_at)}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -560,7 +587,7 @@ export default function AdminPanel() {
               <div>
                 <h3 className="font-semibold mb-2">Submitted</h3>
                 <p className="text-sm text-gray-600">
-                  {format(new Date(viewPin.created_at), 'PPpp')}
+                  {formatPhilippinesDateTimeFull(viewPin.created_at)}
                 </p>
               </div>
             </div>

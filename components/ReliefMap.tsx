@@ -11,6 +11,24 @@ import { format } from 'date-fns';
 
 const CEBU_CENTER: [number, number] = [10.5, 123.9];
 
+// Helper function to convert UTC date to Philippines time and format it
+const formatPhilippinesDate = (dateString: string) => {
+  const date = new Date(dateString);
+  
+  // Use toLocaleString with Asia/Manila timezone
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  };
+  
+  return date.toLocaleString('en-US', options).replace(',', ' •');
+};
+
 const createCustomIcon = (status: string, reliefType: string) => {
   const color = status === 'approved' ? '#22c55e' : status === 'pending' ? '#f59e0b' : '#ef4444';
   const reliefIcon = reliefType === 'food' ? '🍚' :
@@ -153,14 +171,14 @@ export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600p
                 <div className="space-y-2 text-xs text-gray-500 border-t border-gray-100 pt-3">
                   <div className="flex justify-between">
                     <span className="font-medium">Posted:</span>
-                    <span>{format(new Date(pin.created_at), 'MMM d, yyyy • h:mm a')}</span>
+                    <span>{formatPhilippinesDate(pin.created_at)}</span>
                   </div>
                   
                   {/* Show datetime info if available */}
                   {pin.start_datetime && (
                     <div className="flex justify-between">
                       <span className="font-medium">Starts:</span>
-                      <span>{format(new Date(pin.start_datetime), 'MMM d, yyyy • h:mm a')}</span>
+                      <span>{formatPhilippinesDate(pin.start_datetime)}</span>
                     </div>
                   )}
                   
@@ -168,7 +186,7 @@ export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600p
                     <div className="flex justify-between">
                       <span className="font-medium">Ends:</span>
                       <span className={new Date(pin.end_datetime) < new Date() ? 'text-red-600 font-medium' : ''}>
-                        {format(new Date(pin.end_datetime), 'MMM d, yyyy • h:mm a')}
+                        {formatPhilippinesDate(pin.end_datetime)}
                         {new Date(pin.end_datetime) < new Date() && ' (Expired)'}
                       </span>
                     </div>

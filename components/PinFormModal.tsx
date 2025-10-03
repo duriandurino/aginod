@@ -44,6 +44,19 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
 
   useEffect(() => {
     if (pin) {
+      // Convert ISO datetime strings back to datetime-local format (YYYY-MM-DDTHH:mm)
+      const formatDatetimeLocal = (isoString: string | null) => {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        // Format: YYYY-MM-DDTHH:mm
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
       setFormData({
         latitude: pin.latitude,
         longitude: pin.longitude,
@@ -51,8 +64,8 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
         relief_type: pin.relief_type,
         description: pin.description,
         photo_url: pin.photo_url || '',
-        start_datetime: pin.start_datetime || '',
-        end_datetime: pin.end_datetime || '',
+        start_datetime: formatDatetimeLocal(pin.start_datetime),
+        end_datetime: formatDatetimeLocal(pin.end_datetime),
       });
       setPhotoPreview(pin.photo_url || '');
     } else if (defaultLat && defaultLng) {
@@ -188,8 +201,20 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
     try {
       const photoUrl = await uploadPhoto();
 
+      // Convert datetime-local values to ISO format with timezone
+      // datetime-local gives us "YYYY-MM-DDTHH:mm" in local time
+      // We need to convert it to ISO string for proper storage
+      const startDatetime = formData.start_datetime 
+        ? new Date(formData.start_datetime).toISOString()
+        : null;
+      const endDatetime = formData.end_datetime 
+        ? new Date(formData.end_datetime).toISOString()
+        : null;
+
       const pinData = {
         ...formData,
+        start_datetime: startDatetime,
+        end_datetime: endDatetime,
         photo_url: photoUrl,
         user_id: user.id,
         status: 'approved', // Auto-approve pins
