@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase, ReliefPin } from '@/lib/supabase-client';
 import { toast } from 'sonner';
-import { Upload, MapPin, Loader as Loader2 } from 'lucide-react';
+import { Upload, MapPin, Loader as Loader2, Search, MapPinIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 type PinFormModalProps = {
@@ -25,6 +25,10 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [formData, setFormData] = useState({
     latitude: defaultLat || 10.5,
     longitude: defaultLng || 123.9,
@@ -32,6 +36,8 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
     relief_type: 'food',
     description: '',
     photo_url: '',
+    start_datetime: '',
+    end_datetime: '',
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>('');
@@ -45,6 +51,8 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
         relief_type: pin.relief_type,
         description: pin.description,
         photo_url: pin.photo_url || '',
+        start_datetime: pin.start_datetime || '',
+        end_datetime: pin.end_datetime || '',
       });
       setPhotoPreview(pin.photo_url || '');
     } else if (defaultLat && defaultLng) {
@@ -53,8 +61,79 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
         latitude: defaultLat,
         longitude: defaultLng,
       }));
+      // Auto-generate location name for new pins
+      generateLocationName(defaultLat, defaultLng);
     }
   }, [pin, defaultLat, defaultLng]);
+
+  // Function to search for locations using OpenStreetMap Nominatim API
+  const searchLocation = async (query: string) => {
+    if (!query.trim()) return;
+    
+    setSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=ph&addressdetails=1`
+      );
+      const data = await response.json();
+      setSearchResults(data);
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error('Error searching location:', error);
+      toast.error('Failed to search location');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Function to generate location name from coordinates (reverse geocoding)
+  const generateLocationName = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+      );
+      const data = await response.json();
+      
+      if (data.display_name) {
+        // Extract relevant parts of the address
+        const address = data.address;
+        let locationName = '';
+        
+        if (address.village || address.town || address.city) {
+          locationName = address.village || address.town || address.city;
+        } else if (address.county) {
+          locationName = address.county;
+        } else if (address.state) {
+          locationName = address.state;
+        } else {
+          locationName = data.display_name.split(',')[0];
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          location_name: locationName
+        }));
+      }
+    } catch (error) {
+      console.error('Error generating location name:', error);
+    }
+  };
+
+  // Handle search result selection
+  const handleLocationSelect = (result: any) => {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+    
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      location_name: result.display_name.split(',')[0] || 'Selected Location'
+    }));
+    
+    setSearchQuery(result.display_name);
+    setShowSearchResults(false);
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,7 +192,7 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
         ...formData,
         photo_url: photoUrl,
         user_id: user.id,
-        status: 'pending',
+        status: 'approved', // Auto-approve pins
       };
 
       if (pin) {
@@ -123,14 +202,14 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
           .eq('id', pin.id);
 
         if (error) throw error;
-        toast.success('Pin updated successfully! Awaiting admin approval.');
+        toast.success('Pin updated successfully!');
       } else {
         const { error } = await supabase
           .from('relief_pins')
           .insert([pinData]);
 
         if (error) throw error;
-        toast.success('Pin created successfully! Awaiting admin approval.');
+        toast.success('Pin created and approved successfully!');
       }
 
       onSuccess?.();
@@ -151,15 +230,20 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
       relief_type: 'food',
       description: '',
       photo_url: '',
+      start_datetime: '',
+      end_datetime: '',
     });
     setPhotoFile(null);
     setPhotoPreview('');
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[1000]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5" />
@@ -171,6 +255,47 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Location Search */}
+          <div>
+            <Label htmlFor="search">Search Location</Label>
+            <div className="relative">
+              <Input
+                id="search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value.length > 2) {
+                    searchLocation(e.target.value);
+                  } else {
+                    setShowSearchResults(false);
+                  }
+                }}
+                placeholder="Search for a location in Cebu..."
+                className="pr-10"
+              />
+              <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
+              
+              {/* Search Results Dropdown */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {searchResults.map((result, index) => (
+                    <div
+                      key={index}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      onClick={() => handleLocationSelect(result)}
+                    >
+                      <div className="font-medium text-sm">{result.display_name.split(',')[0]}</div>
+                      <div className="text-xs text-gray-500">{result.display_name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Search for a location to automatically set coordinates and location name
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="latitude">Latitude</Label>
@@ -179,7 +304,13 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
                 type="number"
                 step="any"
                 value={formData.latitude}
-                onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
+                onChange={(e) => {
+                  const lat = parseFloat(e.target.value);
+                  setFormData({ ...formData, latitude: lat });
+                  if (lat && formData.longitude) {
+                    generateLocationName(lat, formData.longitude);
+                  }
+                }}
                 required
               />
             </div>
@@ -190,7 +321,13 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
                 type="number"
                 step="any"
                 value={formData.longitude}
-                onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+                onChange={(e) => {
+                  const lng = parseFloat(e.target.value);
+                  setFormData({ ...formData, longitude: lng });
+                  if (formData.latitude && lng) {
+                    generateLocationName(formData.latitude, lng);
+                  }
+                }}
                 required
               />
             </div>
@@ -202,9 +339,12 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
               id="location_name"
               value={formData.location_name}
               onChange={(e) => setFormData({ ...formData, location_name: e.target.value })}
-              placeholder="e.g., Barangay Poblacion"
+              placeholder="Auto-generated or enter manually"
               required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Automatically generated from coordinates or search result
+            </p>
           </div>
 
           <div>
@@ -214,9 +354,9 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
               onValueChange={(value) => setFormData({ ...formData, relief_type: value })}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select relief type..." />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[1002]">
                 <SelectItem value="food">🍚 Food</SelectItem>
                 <SelectItem value="medical">⚕️ Medical</SelectItem>
                 <SelectItem value="shelter">🏠 Shelter</SelectItem>
@@ -225,6 +365,9 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
                 <SelectItem value="other">📦 Other</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-gray-500 mt-1">
+              Choose the type of relief distributed at this location
+            </p>
           </div>
 
           <div>
@@ -237,6 +380,35 @@ export default function PinFormModal({ open, onClose, pin, defaultLat, defaultLn
               rows={4}
               required
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="start_datetime">Relief Start Time</Label>
+              <Input
+                id="start_datetime"
+                type="datetime-local"
+                value={formData.start_datetime}
+                onChange={(e) => setFormData({ ...formData, start_datetime: e.target.value })}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                When did the relief distribution begin?
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="end_datetime">Relief End Time</Label>
+              <Input
+                id="end_datetime"
+                type="datetime-local"
+                value={formData.end_datetime}
+                onChange={(e) => setFormData({ ...formData, end_datetime: e.target.value })}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                When will/did the relief distribution end? (Pin will auto-complete)
+              </p>
+            </div>
           </div>
 
           <div>

@@ -10,7 +10,7 @@ export type UserProfile = {
   email: string;
   full_name: string | null;
   role: 'public' | 'admin';
-  facebook_id: string | null;
+  google_id: string | null;
   avatar_url: string | null;
   is_active: boolean;
   created_at: string;
@@ -26,8 +26,10 @@ export type ReliefPin = {
   relief_type: 'food' | 'medical' | 'shelter' | 'water' | 'clothing' | 'other';
   description: string;
   photo_url: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
   is_active: boolean;
+  start_datetime: string | null;
+  end_datetime: string | null;
   created_at: string;
   updated_at: string;
   user_profile?: UserProfile;

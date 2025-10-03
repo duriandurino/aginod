@@ -7,7 +7,7 @@
       - `email` (text)
       - `full_name` (text)
       - `role` (text, enum: 'public' or 'admin')
-      - `facebook_id` (text, optional)
+      - `google_id` (text, optional)
       - `avatar_url` (text, optional)
       - `is_active` (boolean, default true)
       - `created_at` (timestamptz)
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   email text NOT NULL,
   full_name text,
   role text NOT NULL DEFAULT 'public' CHECK (role IN ('public', 'admin')),
-  facebook_id text,
+  google_id text,
   avatar_url text,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now(),
@@ -232,7 +232,7 @@ CREATE TRIGGER update_relief_pins_updated_at
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, email, full_name, avatar_url, facebook_id)
+  INSERT INTO public.user_profiles (id, email, full_name, avatar_url, google_id)
   VALUES (
     NEW.id,
     NEW.email,

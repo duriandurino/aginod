@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Check, X, Trash2, UserCheck, UserX, Shield, Eye } from 'lucide-react';
+import { ArrowLeft, Check, X, Trash2, UserCheck, UserX, Shield, Eye, Clock, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -30,10 +30,16 @@ export default function AdminPanel() {
   const [pins, setPins] = useState<ReliefPin[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string; type: 'pin' | 'user' }>({
+  const [actionDialog, setActionDialog] = useState<{ 
+    open: boolean; 
+    id: string; 
+    type: 'pin' | 'user'; 
+    action: 'delete' | 'complete' | 'hide' 
+  }>({
     open: false,
     id: '',
     type: 'pin',
+    action: 'delete',
   });
   const [viewPin, setViewPin] = useState<ReliefPin | null>(null);
 
@@ -77,7 +83,7 @@ export default function AdminPanel() {
     }
   };
 
-  const handlePinStatusUpdate = async (pinId: string, status: 'approved' | 'rejected') => {
+  const handlePinStatusUpdate = async (pinId: string, status: 'approved' | 'rejected' | 'completed') => {
     try {
       const { error } = await supabase
         .from('relief_pins')
@@ -91,6 +97,23 @@ export default function AdminPanel() {
     } catch (error: any) {
       console.error('Error updating pin:', error);
       toast.error('Failed to update pin');
+    }
+  };
+
+  const handlePinHide = async (pinId: string) => {
+    try {
+      const { error } = await supabase
+        .from('relief_pins')
+        .update({ is_active: false })
+        .eq('id', pinId);
+
+      if (error) throw error;
+
+      toast.success('Pin hidden successfully');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error hiding pin:', error);
+      toast.error('Failed to hide pin');
     }
   };
 
@@ -150,6 +173,7 @@ export default function AdminPanel() {
     totalPins: pins.length,
     pendingPins: pins.filter(p => p.status === 'pending').length,
     approvedPins: pins.filter(p => p.status === 'approved').length,
+    completedPins: pins.filter(p => p.status === 'completed').length,
     totalUsers: users.length,
     activeUsers: users.filter(u => u.is_active).length,
     admins: users.filter(u => u.role === 'admin').length,
@@ -186,7 +210,7 @@ export default function AdminPanel() {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
+        <div className="grid md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600">Pending Pins</CardTitle>
@@ -194,6 +218,15 @@ export default function AdminPanel() {
             <CardContent>
               <div className="text-3xl font-bold text-yellow-600">{stats.pendingPins}</div>
               <p className="text-xs text-gray-500 mt-1">Awaiting approval</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">Completed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-gray-600">{stats.completedPins}</div>
+              <p className="text-xs text-gray-500 mt-1">Finished relief</p>
             </CardContent>
           </Card>
           <Card>
@@ -265,6 +298,8 @@ export default function AdminPanel() {
                                     ? 'bg-green-100 text-green-800'
                                     : pin.status === 'pending'
                                     ? 'bg-yellow-100 text-yellow-800'
+                                    : pin.status === 'completed'
+                                    ? 'bg-gray-100 text-gray-800'
                                     : 'bg-red-100 text-red-800'
                                 }
                               >
@@ -280,6 +315,7 @@ export default function AdminPanel() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => setViewPin(pin)}
+                                  title="View details"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </Button>
@@ -290,6 +326,7 @@ export default function AdminPanel() {
                                       variant="ghost"
                                       className="text-green-600 hover:text-green-700"
                                       onClick={() => handlePinStatusUpdate(pin.id, 'approved')}
+                                      title="Approve pin"
                                     >
                                       <Check className="w-4 h-4" />
                                     </Button>
@@ -298,16 +335,38 @@ export default function AdminPanel() {
                                       variant="ghost"
                                       className="text-red-600 hover:text-red-700"
                                       onClick={() => handlePinStatusUpdate(pin.id, 'rejected')}
+                                      title="Reject pin"
                                     >
                                       <X className="w-4 h-4" />
                                     </Button>
                                   </>
                                 )}
+                                {pin.status === 'approved' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-gray-600 hover:text-gray-700"
+                                    onClick={() => setActionDialog({ open: true, id: pin.id, type: 'pin', action: 'complete' })}
+                                    title="Mark as completed"
+                                  >
+                                    <Clock className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-orange-600 hover:text-orange-700"
+                                  onClick={() => setActionDialog({ open: true, id: pin.id, type: 'pin', action: 'hide' })}
+                                  title="Hide pin"
+                                >
+                                  <Archive className="w-4 h-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   className="text-red-600 hover:text-red-700"
-                                  onClick={() => setDeleteDialog({ open: true, id: pin.id, type: 'pin' })}
+                                  onClick={() => setActionDialog({ open: true, id: pin.id, type: 'pin', action: 'delete' })}
+                                  title="Delete pin (permanent)"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -408,26 +467,44 @@ export default function AdminPanel() {
         </Tabs>
       </main>
 
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
+      <AlertDialog open={actionDialog.open} onOpenChange={(open) => setActionDialog({ ...actionDialog, open })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {actionDialog.action === 'delete' ? 'Are you sure?' : 
+               actionDialog.action === 'complete' ? 'Mark as Completed?' :
+               'Hide Pin?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the {deleteDialog.type}.
+              {actionDialog.action === 'delete' && 'This action cannot be undone. This will permanently delete the pin.'}
+              {actionDialog.action === 'complete' && 'This will mark the relief pin as completed. It will be hidden from active relief pins.'}
+              {actionDialog.action === 'hide' && 'This will hide the pin from public view. It can be restored later if needed.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteDialog.type === 'pin') {
-                  handleDeletePin(deleteDialog.id);
+                if (actionDialog.type === 'pin') {
+                  if (actionDialog.action === 'delete') {
+                    handleDeletePin(actionDialog.id);
+                  } else if (actionDialog.action === 'complete') {
+                    handlePinStatusUpdate(actionDialog.id, 'completed');
+                  } else if (actionDialog.action === 'hide') {
+                    handlePinHide(actionDialog.id);
+                  }
                 }
-                setDeleteDialog({ open: false, id: '', type: 'pin' });
+                setActionDialog({ open: false, id: '', type: 'pin', action: 'delete' });
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className={
+                actionDialog.action === 'delete' ? 'bg-red-600 hover:bg-red-700' :
+                actionDialog.action === 'complete' ? 'bg-gray-600 hover:bg-gray-700' :
+                'bg-orange-600 hover:bg-orange-700'
+              }
             >
-              Delete
+              {actionDialog.action === 'delete' ? 'Delete' :
+               actionDialog.action === 'complete' ? 'Complete' :
+               'Hide'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

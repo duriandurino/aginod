@@ -4,11 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase, ReliefPin } from '@/lib/supabase-client';
+import { autoCompleteReliefPins, getActiveReliefPins } from '@/lib/relief-utils';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Plus, LogOut, Settings, Filter, CircleAlert as AlertCircle } from 'lucide-react';
+import { HeartPinIcon } from '@/components/ui/HeartPinIcon';
 import { toast } from 'sonner';
 import PinFormModal from '@/components/PinFormModal';
 
@@ -30,7 +32,8 @@ export default function Dashboard() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [selectedPin, setSelectedPin] = useState<ReliefPin | null>(null);
   const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('approved');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'approved' | 'pending' | 'completed'>('active');
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,7 +43,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user) {
-      fetchPins();
+      // Auto-complete pins first, then fetch
+      autoCompleteReliefPins().then(() => {
+        fetchPins();
+      });
 
       const channel = supabase
         .channel('relief_pins_changes')
@@ -62,6 +68,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (statusFilter === 'all') {
       setFilteredPins(pins);
+    } else if (statusFilter === 'active') {
+      // Show only non-completed pins (approved, pending, rejected)
+      setFilteredPins(pins.filter(pin => pin.status !== 'completed'));
     } else {
       setFilteredPins(pins.filter(pin => pin.status === statusFilter));
     }
@@ -69,20 +78,9 @@ export default function Dashboard() {
 
   const fetchPins = async () => {
     try {
-      let query = supabase
-        .from('relief_pins')
-        .select('*, user_profile:user_profiles(*)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (!isAdmin) {
-        query = query.or(`status.eq.approved,user_id.eq.${user?.id}`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setPins(data || []);
+      // Use the new utility function to get active pins
+      const data = await getActiveReliefPins(user?.id, isAdmin);
+      setPins(data);
     } catch (error: any) {
       console.error('Error fetching pins:', error);
       toast.error('Failed to load relief pins');
@@ -103,12 +101,14 @@ export default function Dashboard() {
 
   const stats = {
     total: pins.length,
+    active: pins.filter(p => p.status !== 'completed').length,
     approved: pins.filter(p => p.status === 'approved').length,
     pending: pins.filter(p => p.status === 'pending').length,
+    completed: pins.filter(p => p.status === 'completed').length,
     myPins: pins.filter(p => p.user_id === user?.id).length,
   };
 
-  if (loading || !profile) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -119,6 +119,11 @@ export default function Dashboard() {
     );
   }
 
+  if (!user) {
+    router.push('/');
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b shadow-sm sticky top-0 z-10">
@@ -126,12 +131,12 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2 rounded-lg">
-                <MapPin className="w-6 h-6 text-white" />
+                <HeartPinIcon className="w-6 h-6" size={24} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Northern Cebu Relief Tracker</h1>
+                <h1 className="text-xl font-bold text-gray-900">Aginod</h1>
                 <p className="text-sm text-gray-600">
-                  {profile.full_name || profile.email}
+                  {profile?.full_name || profile?.email || user?.email || 'User'}
                   {isAdmin && (
                     <Badge className="ml-2 bg-purple-600">Admin</Badge>
                   )}
@@ -149,9 +154,32 @@ export default function Dashboard() {
                   Admin Panel
                 </Button>
               )}
-              <Button variant="outline" onClick={signOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+              <Button 
+                variant="outline" 
+                disabled={signingOut}
+                onClick={async () => {
+                  try {
+                    setSigningOut(true);
+                    await signOut();
+                  } catch (error) {
+                    console.error('Sign out error:', error);
+                    toast.error('Failed to sign out. Please try again.');
+                  } finally {
+                    setSigningOut(false);
+                  }
+                }}
+              >
+                {signingOut ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                    Signing Out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -159,13 +187,13 @@ export default function Dashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
+        <div className="grid md:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Pins</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Active Relief</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.active}</div>
             </CardContent>
           </Card>
           <Card>
@@ -186,10 +214,18 @@ export default function Dashboard() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">Completed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-600">{stats.completed}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600">My Pins</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.myPins}</div>
+              <div className="text-2xl font-bold text-purple-600">{stats.myPins}</div>
             </CardContent>
           </Card>
         </div>
@@ -199,16 +235,24 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Relief Distribution Map</CardTitle>
-                <CardDescription>Click on the map to add a new relief pin</CardDescription>
+                <CardDescription>Click on the map to add a new relief pin (auto-approved)</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setStatusFilter(statusFilter === 'all' ? 'approved' : statusFilter === 'approved' ? 'pending' : 'all')}
+                  onClick={() => {
+                    const filters = ['active', 'all', 'approved', 'pending', 'completed'];
+                    const currentIndex = filters.indexOf(statusFilter);
+                    const nextIndex = (currentIndex + 1) % filters.length;
+                    setStatusFilter(filters[nextIndex] as any);
+                  }}
                 >
                   <Filter className="w-4 h-4 mr-2" />
-                  {statusFilter === 'all' ? 'All' : statusFilter === 'approved' ? 'Approved' : 'Pending'}
+                  {statusFilter === 'active' ? 'Active' : 
+                   statusFilter === 'all' ? 'All' : 
+                   statusFilter === 'approved' ? 'Approved' : 
+                   statusFilter === 'pending' ? 'Pending' : 'Completed'}
                 </Button>
                 <Button onClick={() => setShowPinModal(true)}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -234,14 +278,14 @@ export default function Dashboard() {
         </Card>
 
         {stats.pending > 0 && !isAdmin && (
-          <Card className="bg-yellow-50 border-yellow-200">
+          <Card className="bg-green-50 border-green-200">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-800">
-                <AlertCircle className="w-5 h-5" />
-                Pending Approval
+              <CardTitle className="flex items-center gap-2 text-green-800">
+                <MapPin className="w-5 h-5" />
+                Recent Activity
               </CardTitle>
-              <CardDescription className="text-yellow-700">
-                You have {stats.pending} pin{stats.pending > 1 ? 's' : ''} awaiting admin approval.
+              <CardDescription className="text-green-700">
+                You have {stats.pending} pin{stats.pending > 1 ? 's' : ''} that are currently being processed.
               </CardDescription>
             </CardHeader>
           </Card>

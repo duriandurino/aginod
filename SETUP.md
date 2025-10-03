@@ -4,7 +4,7 @@
 
 This application tracks earthquake relief efforts in Northern Cebu, Philippines. It features:
 
-- **Facebook Authentication** via Supabase Auth
+- **Google Authentication** via Supabase Auth
 - **Interactive Map** with OpenStreetMap and Leaflet
 - **Relief Pin Management** with photo uploads
 - **Admin Dashboard** for moderation and user management
@@ -14,57 +14,64 @@ This application tracks earthquake relief efforts in Northern Cebu, Philippines.
 ## Prerequisites
 
 1. **Supabase Account** - Already configured with this project
-2. **Facebook Developer Account** - Required for Facebook OAuth
+2. **Google Cloud Console Account** - Required for Google OAuth
 3. **Vercel Account** (optional) - For deployment
 
-## Step 1: Configure Facebook OAuth
+## Step 1: Configure Google OAuth
 
-### 1.1 Create Facebook App
+### 1.1 Create Google Cloud Project
 
-1. Go to [Facebook Developers](https://developers.facebook.com/)
-2. Click "My Apps" → "Create App"
-3. Choose "Consumer" as app type
-4. Fill in app details:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Click "Select a project" → "New Project"
+3. Fill in project details:
+   - **Project Name**: Northern Cebu Relief Tracker
+   - **Organization**: Your organization (optional)
+4. Click "Create"
+
+### 1.2 Enable Google+ API
+
+1. In your project dashboard, go to "APIs & Services" → "Library"
+2. Search for "Google+ API" and click on it
+3. Click "Enable"
+
+### 1.3 Configure OAuth Consent Screen
+
+1. Go to "APIs & Services" → "OAuth consent screen"
+2. Choose "External" user type
+3. Fill in required fields:
    - **App Name**: Northern Cebu Relief Tracker
-   - **Contact Email**: Your email
-5. Click "Create App"
+   - **User Support Email**: Your email
+   - **Developer Contact Email**: Your email
+4. Add scopes: `email`, `profile`
+5. Save and continue
 
-### 1.2 Add Facebook Login Product
+### 1.4 Create OAuth Credentials
 
-1. In your app dashboard, click "Add Product"
-2. Find "Facebook Login" and click "Set Up"
-3. Choose "Web" as platform
-4. Enter your Site URL (for local dev: `http://localhost:3000`)
-
-### 1.3 Configure OAuth Settings
-
-1. Go to Facebook Login → Settings
-2. Add these to "Valid OAuth Redirect URIs":
+1. Go to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "OAuth 2.0 Client IDs"
+3. Choose "Web application"
+4. Add authorized redirect URIs:
    ```
    https://dvjxhgqmpltulzhcvaek.supabase.co/auth/v1/callback
    http://localhost:3000/auth/callback
    ```
-3. Save changes
-
-### 1.4 Get App Credentials
-
-1. Go to Settings → Basic
-2. Copy your **App ID** and **App Secret**
+5. Click "Create"
+6. Copy your **Client ID** and **Client Secret**
 
 ## Step 2: Configure Supabase Authentication
 
 1. Go to your Supabase Dashboard: https://dvjxhgqmpltulzhcvaek.supabase.co
 2. Navigate to **Authentication** → **Providers**
-3. Find **Facebook** provider and enable it
-4. Paste your Facebook **App ID** and **App Secret**
-5. Copy the "Callback URL" (should match what you added to Facebook)
+3. Find **Google** provider and enable it
+4. Paste your Google **Client ID** and **Client Secret**
+5. Copy the "Callback URL" (should match what you added to Google)
 6. Click **Save**
 
 ## Step 3: Set Up Admin User
 
 ### Option A: Manual SQL Update (Recommended)
 
-After you sign in with Facebook for the first time:
+After you sign in with Google for the first time:
 
 1. Go to Supabase Dashboard → SQL Editor
 2. Run this query (replace with your email):
@@ -136,8 +143,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Test the Application
 
-1. Click "Continue with Facebook"
-2. Complete Facebook authentication
+1. Click "Continue with Google"
+2. Complete Google authentication
 3. You should be redirected to the dashboard
 4. Promote yourself to admin using SQL (Step 3)
 5. Test adding pins, uploading photos
@@ -167,20 +174,22 @@ git push -u origin main
 In Vercel project settings, add these environment variables:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://dvjxhgqmpltulzhcvaek.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2anhoZ3FtcGx0dWx6aGN2YWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MTI5MTYsImV4cCI6MjA3NTA4ODkxNn0.34Doh6tGeRT2igSdC2NKiAWuke8p2lgT-4b3Z-9w9Lo
+NEXT_PUBLIC_SUPABASE_URL=https://iysmlytmjordarghhdrc.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5c21seXRtam9yZGFyZ2hoZHJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MTYzNTksImV4cCI6MjA3NTA5MjM1OX0.t9-w3CJPKHOA_d9Gn5HA80LOK0Uh3B6uV-Z-21qLQFE
+
 ```
 
-### 6.4 Update Facebook OAuth URLs
+### 6.4 Update Google OAuth URLs
 
-After deployment, update your Facebook App settings:
+After deployment, update your Google Cloud Console settings:
 
-1. Go to Facebook App → Facebook Login → Settings
-2. Add your Vercel URL to "Valid OAuth Redirect URIs":
+1. Go to Google Cloud Console → APIs & Services → Credentials
+2. Edit your OAuth 2.0 Client ID
+3. Add your Vercel URL to "Authorized redirect URIs":
    ```
    https://your-app.vercel.app/auth/callback
    ```
-3. Save changes
+4. Save changes
 
 ### 6.5 Deploy
 
@@ -222,11 +231,11 @@ Click "Deploy" in Vercel. Your app will be live in minutes!
 
 ## Troubleshooting
 
-### Facebook Login Not Working
+### Google Login Not Working
 
-- Verify Facebook App is in "Live" mode (not Development)
+- Verify Google OAuth consent screen is configured
 - Check OAuth redirect URIs match exactly
-- Ensure Supabase has correct Facebook credentials
+- Ensure Supabase has correct Google credentials
 
 ### Photos Not Uploading
 
@@ -250,7 +259,7 @@ npm run build
 ## Security Notes
 
 1. **Never commit `.env` file** to version control
-2. **Facebook App Secret** should only be in Supabase, not in code
+2. **Google Client Secret** should only be in Supabase, not in code
 3. **Admin promotion** requires direct database access
 4. **All pins** require admin approval before being visible
 

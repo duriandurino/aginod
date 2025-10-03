@@ -26,7 +26,7 @@
 ## 👤 User Features
 
 ### Authentication
-- **Facebook Login** - One-click social authentication
+- **Google Login** - One-click social authentication
 - **Secure** - OAuth 2.0 protocol via Supabase
 - **Profile Auto-Creation** - Profile created on first login
 - **Session Management** - Stay logged in across visits
@@ -81,7 +81,7 @@
   - ✓ Activate - Enable user account
   - ✗ Deactivate - Disable user account
 - **User Information**:
-  - Full name (from Facebook)
+  - Full name (from Google)
   - Email address
   - Current role (admin/public)
   - Account status (active/inactive)
@@ -108,7 +108,7 @@
 
 ### Authentication Security
 - **OAuth 2.0** - Industry-standard authentication
-- **No Password Storage** - Handled by Facebook
+- **No Password Storage** - Handled by Google
 - **Session Encryption** - Secure token management
 - **Auto Logout** - Session expiration on inactivity
 
@@ -236,7 +236,7 @@
 - **Styling**: Tailwind CSS, shadcn/ui
 - **Maps**: Leaflet.js, OpenStreetMap
 - **Backend**: Supabase (PostgreSQL)
-- **Auth**: Supabase Auth + Facebook OAuth
+- **Auth**: Supabase Auth + Google OAuth
 - **Storage**: Supabase Storage
 - **Deployment**: Vercel
 - **Real-time**: Supabase Realtime

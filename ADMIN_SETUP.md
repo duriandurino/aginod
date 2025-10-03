@@ -2,18 +2,18 @@
 
 ## Making Yourself the First Admin
 
-After you sign in with Facebook for the first time, you need to promote yourself to admin role.
+After you sign in with Google for the first time, you need to promote yourself to admin role.
 
 ### Step 1: Sign In
 
 1. Go to your deployed app or `http://localhost:3000`
-2. Click "Continue with Facebook"
-3. Complete the Facebook authentication
+2. Click "Continue with Google"
+3. Complete the Google authentication
 4. You'll be redirected to the dashboard
 
 ### Step 2: Get Your Email
 
-Your email is visible in the dashboard header. Note it down (it's your Facebook email).
+Your email is visible in the dashboard header. Note it down (it's your Google email).
 
 ### Step 3: Promote to Admin
 
@@ -26,7 +26,7 @@ Run this SQL query (replace with your actual email):
 ```sql
 UPDATE user_profiles
 SET role = 'admin'
-WHERE email = 'your-facebook-email@example.com';
+WHERE email = 'your-google-email@example.com';
 ```
 
 Click "Run" or press Cmd/Ctrl + Enter.
@@ -136,7 +136,7 @@ If you need to temporarily disable a user:
 
 ### Security Reminders
 
-1. **Protect your account** - Use strong password on Facebook
+1. **Protect your account** - Use strong password on Google
 2. **Log out** when using shared computers
 3. **Regular reviews** - Check users and pins weekly
 4. **Monitor activity** - Watch for suspicious patterns
@@ -203,7 +203,7 @@ If you encounter issues:
 
 1. Check browser console for errors (F12)
 2. Review Supabase logs in dashboard
-3. Verify Facebook app is in "Live" mode
+3. Verify Google OAuth consent screen is configured
 4. Check environment variables are set
 5. Ensure database migrations ran successfully
 
@@ -212,7 +212,7 @@ If you encounter issues:
 Keep these resources handy:
 
 - Supabase Dashboard: https://supabase.com/dashboard/project/dvjxhgqmpltulzhcvaek
-- Facebook App: https://developers.facebook.com/apps
+- Google Cloud Console: https://console.cloud.google.com/
 - Vercel Dashboard: https://vercel.com/dashboard
 
 ---

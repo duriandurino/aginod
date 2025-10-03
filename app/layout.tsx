@@ -7,8 +7,13 @@ import { Toaster } from '@/components/ui/sonner';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Northern Cebu Relief Tracker',
-  description: 'Track earthquake relief efforts in Northern Cebu, Philippines',
+  title: 'Aginod - Northern Cebu Relief Tracker',
+  description: 'Track earthquake relief efforts across Northern Cebu, Philippines. Coordinate relief distribution and help your community.',
+  icons: {
+    icon: '/assets/icons/heart-pin-icon.png',
+    shortcut: '/assets/icons/heart-pin-icon.png',
+    apple: '/assets/icons/heart-pin-icon.png',
+  },
 };
 
 export default function RootLayout({
