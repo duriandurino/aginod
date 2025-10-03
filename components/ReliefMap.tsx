@@ -29,8 +29,18 @@ const formatPhilippinesDate = (dateString: string) => {
   return date.toLocaleString('en-US', options).replace(',', ' •');
 };
 
-const createCustomIcon = (status: string, reliefType: string) => {
-  const color = status === 'approved' ? '#22c55e' : status === 'pending' ? '#f59e0b' : '#ef4444';
+const createCustomIcon = (status: string, reliefType: string, isOwnPin: boolean = false) => {
+  // Use purple color for user's own pins, otherwise use status-based colors
+  const color = isOwnPin 
+    ? '#9333ea' // Purple for own pins
+    : status === 'approved' 
+      ? '#22c55e' 
+      : status === 'pending' 
+        ? '#f59e0b' 
+        : status === 'completed'
+          ? '#6b7280'
+          : '#ef4444';
+  
   const reliefIcon = reliefType === 'food' ? '🍚' :
                      reliefType === 'medical' ? '⚕️' :
                      reliefType === 'shelter' ? '🏠' :
@@ -46,7 +56,7 @@ const createCustomIcon = (status: string, reliefType: string) => {
         height: 36px;
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
-        border: 3px solid white;
+        border: ${isOwnPin ? '3px solid #fbbf24' : '3px solid white'};
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         display: flex;
         align-items: center;
@@ -81,9 +91,10 @@ type ReliefMapProps = {
   onPinClick?: (pin: ReliefPin) => void;
   onMapClick?: (lat: number, lng: number) => void;
   height?: string;
+  currentUserId?: string;
 };
 
-export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600px' }: ReliefMapProps) {
+export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600px', currentUserId }: ReliefMapProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -113,15 +124,18 @@ export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600p
 
         <MapClickHandler onMapClick={onMapClick} />
 
-        {pins.map((pin) => (
-          <Marker
-            key={pin.id}
-            position={[pin.latitude, pin.longitude]}
-            icon={createCustomIcon(pin.status, pin.relief_type)}
-            eventHandlers={{
-              click: () => onPinClick?.(pin),
-            }}
-          >
+        {pins.map((pin) => {
+          const isOwnPin = currentUserId ? pin.user_id === currentUserId : false;
+          
+          return (
+            <Marker
+              key={pin.id}
+              position={[pin.latitude, pin.longitude]}
+              icon={createCustomIcon(pin.status, pin.relief_type, isOwnPin)}
+              eventHandlers={{
+                click: () => onPinClick?.(pin),
+              }}
+            >
             <Popup maxWidth={320} className="custom-popup">
               <div className="min-w-[280px] max-w-[320px]">
                 {/* Header with location and relief type */}
@@ -217,7 +231,8 @@ export default function ReliefMap({ pins, onPinClick, onMapClick, height = '600p
               </div>
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
       </MapContainer>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase, ReliefPin } from '@/lib/supabase-client';
 import { autoCompleteReliefPins, getActiveReliefPins } from '@/lib/relief-utils';
 import dynamic from 'next/dynamic';
@@ -34,62 +34,24 @@ export default function Dashboard() {
   const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'approved' | 'pending' | 'completed'>('active');
   const [signingOut, setSigningOut] = useState(false);
+  const fetchingRef = useRef(false);
+  const hasInitialFetch = useRef(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/');
+  const fetchPins = useCallback(async () => {
+    // Prevent duplicate fetches
+    if (fetchingRef.current) {
+      console.log('Fetch already in progress, skipping...');
+      return;
     }
-  }, [user, loading, router]);
 
-  useEffect(() => {
-    if (user && !loading && profile) {
-      // Wait for both user AND profile to be loaded
-      console.log('User and profile loaded, fetching pins...');
-      
-      // Auto-complete pins first, then fetch
-      autoCompleteReliefPins().then(() => {
-        fetchPins();
-      }).catch((error) => {
-        console.error('Error in auto-complete:', error);
-        // Still fetch pins even if auto-complete fails
-        fetchPins();
-      });
-
-      const channel = supabase
-        .channel('relief_pins_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'relief_pins' },
-          () => {
-            fetchPins();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user, loading, profile]);
-
-  useEffect(() => {
-    if (statusFilter === 'all') {
-      setFilteredPins(pins);
-    } else if (statusFilter === 'active') {
-      // Show only non-completed pins (approved, pending, rejected)
-      setFilteredPins(pins.filter(pin => pin.status !== 'completed'));
-    } else {
-      setFilteredPins(pins.filter(pin => pin.status === statusFilter));
-    }
-  }, [pins, statusFilter]);
-
-  const fetchPins = async () => {
     try {
       if (!user) {
         console.log('No user, skipping fetch');
         setLoadingPins(false);
         return;
       }
+
+      fetchingRef.current = true;
 
       // Fetch all pins including completed ones for filtering
       let query = supabase
@@ -116,14 +78,70 @@ export default function Dashboard() {
       
       console.log(`Fetched ${data?.length || 0} pins (isAdmin: ${userIsAdmin})`);
       setPins(data || []);
+      hasInitialFetch.current = true;
     } catch (error: any) {
       console.error('Error fetching pins:', error);
       toast.error('Failed to load relief pins');
       setPins([]); // Set empty array on error to prevent infinite loading
     } finally {
       setLoadingPins(false);
+      fetchingRef.current = false;
     }
-  };
+  }, [user, profile]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/');
+    }
+  }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user && !loading && profile && !hasInitialFetch.current) {
+      // Wait for both user AND profile to be loaded
+      console.log('User and profile loaded, fetching pins...');
+      
+      // Auto-complete pins first, then fetch (only on initial load)
+      autoCompleteReliefPins().then(() => {
+        fetchPins();
+      }).catch((error) => {
+        console.error('Error in auto-complete:', error);
+        // Still fetch pins even if auto-complete fails
+        fetchPins();
+      });
+    }
+  }, [user, loading, profile, fetchPins]);
+
+  // Set up realtime subscription separately
+  useEffect(() => {
+    if (user && hasInitialFetch.current) {
+      const channel = supabase
+        .channel('relief_pins_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'relief_pins' },
+          () => {
+            console.log('Realtime update detected, refetching pins...');
+            fetchPins();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user, fetchPins]);
+
+  useEffect(() => {
+    if (statusFilter === 'all') {
+      setFilteredPins(pins);
+    } else if (statusFilter === 'active') {
+      // Show only non-completed pins (approved, pending, rejected)
+      setFilteredPins(pins.filter(pin => pin.status !== 'completed'));
+    } else {
+      setFilteredPins(pins.filter(pin => pin.status === statusFilter));
+    }
+  }, [pins, statusFilter]);
 
   const handleMapClick = (lat: number, lng: number) => {
     setSelectedLatLng({ lat, lng });
@@ -135,14 +153,14 @@ export default function Dashboard() {
     setSelectedPin(pin);
   };
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: pins.length,
     active: pins.filter(p => p.status !== 'completed').length,
     approved: pins.filter(p => p.status === 'approved').length,
     pending: pins.filter(p => p.status === 'pending').length,
     completed: pins.filter(p => p.status === 'completed').length,
     myPins: pins.filter(p => p.user_id === user?.id).length,
-  };
+  }), [pins, user]);
 
   if (loading) {
     return (
@@ -308,6 +326,7 @@ export default function Dashboard() {
                 onPinClick={handlePinClick}
                 onMapClick={handleMapClick}
                 height="600px"
+                currentUserId={user?.id}
               />
             )}
           </CardContent>
