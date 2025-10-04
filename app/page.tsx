@@ -52,7 +52,7 @@ export default function Home() {
               Aginod
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Help coordinate earthquake relief efforts across Northern Cebu. Track relief distribution,
+              Help coordinate earthquake relief efforts. Track relief distribution,
               identify underserved areas, and make a difference in your community.
             </p>
           </div>
